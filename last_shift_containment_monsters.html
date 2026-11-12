@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE LAST SHIFT: CONTAINMENT</title>
+<link rel="icon" href="data:,">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@500;700;900&display=swap');
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #050709;
+    color: #dce7e9;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  canvas { display: block; }
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #topbar {
+    position: absolute; top: 20px; left: 24px; right: 24px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    text-shadow: 0 0 10px #000;
+  }
+  .label { color: #91a8af; font-size: 11px; letter-spacing: 3px; }
+  .value { font-family: 'Orbitron', sans-serif; font-size: 18px; margin-top: 6px; }
+  #cards { color: #65f0cc; }
+  #objective {
+    position: absolute; left: 24px; bottom: 25px;
+    background: rgba(4,10,13,.76); border-left: 3px solid #65f0cc;
+    padding: 12px 16px; min-width: 240px;
+  }
+  #objectiveText { margin-top: 7px; font-size: 14px; }
+  #status { color: #65f0cc; margin-top: 7px; font-size: 11px; }
+  #staminaWrap {
+    position: absolute; right: 24px; bottom: 28px; width: 160px;
+  }
+  #staminaBar { height: 5px; margin-top: 9px; background: #263238; }
+  #staminaFill { width: 100%; height: 100%; background: #65f0cc; }
+  #crosshair {
+    position: absolute; left: 50%; top: 50%;
+    width: 12px; height: 12px; transform: translate(-50%,-50%);
+    opacity: .8;
+  }
+  #crosshair:before, #crosshair:after {
+    content: ""; position: absolute; background: #c9e9e9;
+  }
+  #crosshair:before { width: 1px; height: 12px; left: 5px; }
+  #crosshair:after { width: 12px; height: 1px; top: 5px; }
+  #prompt {
+    position: absolute; left: 50%; top: 57%;
+    transform: translateX(-50%); font-size: 12px;
+    letter-spacing: 2px; color: #a7fff0; text-align: center;
+    text-shadow: 0 0 8px #000;
+  }
+  #lorePanel { position:fixed; z-index:9; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:min(560px, calc(100% - 32px)); padding:24px; background:rgba(3,8,10,.97);
+    border:1px solid #65f0cc; box-shadow:0 0 35px #000; color:#dce7e9; }
+  #loreTitle { color:#65f0cc; font-family:'Orbitron',sans-serif; letter-spacing:2px; margin:0 0 16px; }
+  #loreText { color:#b9c8cc; line-height:1.8; white-space:pre-line; font-size:14px; }
+  #loreFooter { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:20px; color:#71858b; font-size:11px; }
+  #danger {
+    position: absolute; inset: 0; opacity: 0;
+    background: radial-gradient(ellipse, transparent 30%, rgba(125,0,0,.65) 100%);
+    transition: opacity .2s;
+  }
+  #overlay {
+    position: fixed; inset: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(13,24,28,.8), rgba(1,3,5,.97));
+    text-align: center; padding: 24px;
+  }
+  #panel { max-width: 640px; width: 100%; }
+  .eyebrow { color: #ef4949; letter-spacing: 5px; font-size: 12px; }
+  h1 {
+    font-family: 'Orbitron', sans-serif; font-size: clamp(36px, 8vw, 74px);
+    line-height: 1.05; margin: 20px 0; color: #e8eeee;
+    text-shadow: 0 0 24px rgba(255,30,30,.22);
+  }
+  #description {
+    color: #9baeb4; line-height: 1.8; font-size: 14px;
+    max-width: 480px; margin: 0 auto 25px;
+  }
+  button {
+    background: #c22d35; color: white; border: 0;
+    padding: 15px 28px; cursor: pointer; font: 700 13px 'Orbitron',sans-serif;
+    letter-spacing: 2px; transition: .2s;
+  }
+  button:hover { background: #f0444c; box-shadow: 0 0 25px #a22a35; }
+  #controls { color: #72858b; font-size: 11px; line-height: 2; margin-top: 26px; }
+  .hidden { display: none !important; }
+  #scanlines {
+    position: fixed; inset: 0; z-index: 2; pointer-events: none;
+    opacity: .09;
+    background: repeating-linear-gradient(0deg, transparent 0 3px, #000 4px);
+  }
+</style>
+</head>
+<body>
+<div id="hud" class="hidden">
+  <div id="topbar">
+    <div>
+      <div class="label">FACILITY // <span id="levelLabel">SECTOR 07</span></div>
+      <div class="value">THE LAST SHIFT</div>
+    </div>
+    <div style="text-align:right">
+      <div class="label">ACCESS KEYCARDS</div>
+      <div class="value" id="cards">0 / 3</div>
+      <div class="label" style="margin-top:8px">GENERATORS <span id="generatorCount" style="color:#65f0cc">0 / 3</span></div>
+    </div>
+  </div>
+  <div id="objective">
+    <div class="label">CURRENT OBJECTIVE</div>
+    <div id="objectiveText">Find the three keycards.</div>
+    <div id="status">FACILITY POWER: UNSTABLE</div>
+  </div>
+  <div id="staminaWrap">
+    <div class="label">STAMINA</div>
+    <div id="staminaBar"><div id="staminaFill"></div></div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="prompt"></div>
+  <div id="danger"></div>
+</div>
+<div id="scanlines"></div>
+<div id="lorePanel" class="hidden">
+  <div class="label">RECOVERED DOCUMENT // INTERNAL ARCHIVE</div>
+  <h2 id="loreTitle">DOCUMENT</h2>
+  <div id="loreText"></div>
+  <div id="loreFooter"><span id="loreIndex"></span><button id="closeLore">CLOSE [E]</button></div>
+</div>
+<div id="mapPanel" style="display:none;position:fixed;z-index:8;inset:7%;background:rgba(3,8,10,.96);border:1px solid #65f0cc;padding:14px;box-shadow:0 0 30px #000">
+  <div style="display:flex;justify-content:space-between;align-items:center;color:#65f0cc;font:12px monospace;margin-bottom:10px">
+    <span>PLAYTEST MAP // <span id="mapLevel">LEVEL 1</span></span><button id="closeMap" style="padding:7px 12px">CLOSE [M]</button>
+  </div>
+  <canvas id="mapCanvas" style="width:100%;height:calc(100% - 36px);display:block;background:#101719"></canvas>
+</div>
+
+<div id="generatorOverlay" class="hidden" style="position:fixed;inset:0;z-index:10;background:rgba(2,6,8,.96);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="width:min(520px,95vw);padding:32px;background:linear-gradient(145deg,#101a1d,#05090b);border:1px solid #395057;text-align:center;box-shadow:0 0 50px #000">
+    <div class="label" style="color:#65f0cc">FACILITY MAINTENANCE TERMINAL</div>
+    <h2 id="generatorTitle" style="font:700 25px Orbitron;color:#65f0cc;margin:18px 0">GENERATOR CONTROL UNIT</h2>
+    <p id="generatorDescription" style="color:#a8b9bd;line-height:1.7">Restore the auxiliary generator circuits.</p>
+    <div class="label">ENTER THE DISPLAYED ACCESS SEQUENCE</div>
+    <div id="generatorSequence" style="font:900 34px Orbitron;letter-spacing:12px;color:#fff;margin:25px 0">1 2 3 4</div>
+    <div id="generatorFeedback" style="min-height:24px;color:#ff7777"></div>
+    <div id="generatorButtons" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      <button data-generator-key="1" style="font:700 20px Orbitron;margin:0;padding:18px 5px">1</button>
+      <button data-generator-key="2" style="font:700 20px Orbitron;margin:0;padding:18px 5px">2</button>
+      <button data-generator-key="3" style="font:700 20px Orbitron;margin:0;padding:18px 5px">3</button>
+      <button data-generator-key="4" style="font:700 20px Orbitron;margin:0;padding:18px 5px">4</button>
+    </div>
+    <p style="font-size:12px;color:#91a8af">Use the number keys or click the buttons. The entity is still active.</p>
+    <button id="closeGenerator" style="background:#26383d;color:#dce7e9">CLOSE TERMINAL</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div id="panel">
+    <div class="eyebrow">◆ CLASSIFIED // INCIDENT 07 ◆</div>
+    <h1 id="title">THE LAST<br>SHIFT</h1>
+    <p id="description">
+      The research facility has gone silent.<br>
+      Three access keycards are missing. The emergency exit remains locked.<br><br>
+      Something is still moving inside.
+    </p>
+    <button id="startButton">ENTER THE FACILITY</button>
+    <div id="controls">
+      WASD — MOVE &nbsp; // &nbsp; MOUSE — LOOK<br>
+      SHIFT — SPRINT &nbsp; // &nbsp; F — FLASHLIGHT<br>
+      E — INTERACT / READ &nbsp; // &nbsp; M — PLAYTEST MAP &nbsp; // &nbsp; ESC — PAUSE
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+
+// ----------------------------------------------------
+// THE LAST SHIFT — SETTINGS
+// ----------------------------------------------------
+const TILE = 4;
+const WALL_HEIGHT = 4.2;
+const PLAYER_HEIGHT = 1.65;
+const WALK_SPEED = 4.1;
+const RUN_SPEED = 6.5;
+
+// # = wall, P = starting point, E = exit. Each level has a fixed layout.
+const MAZES = [
+  [
+    "###############", "#P....#.......#", "###.#.#.###.#.#",
+    "#...#...#...#.#", "#.#####.#.###.#", "#.....#.#.....#",
+    "#.###.#.#####.#", "#.#...#.....#.#", "#.#.#####.#.#.#",
+    "#...#.....#...#", "###.#.#######.#", "#...#.....#...#",
+    "#.#######.#.###", "#.........#...E", "###############"
+  ],
+  [
+    "###############", "#P.....#......#", "#.###..#.####.#",
+    "#...#..#....#.#", "###.#.####..#.#", "#...#......##.#",
+    "#.####.###....#", "#......#...##.#", "####.#.#.##...#",
+    "#....#.#....#.#", "#.####.####.#.#", "#......#....#.#",
+    "#.####.#.####.#", "#..........#..E", "###############"
+  ],
+  [
+    "###############", "#P....#.......#", "#.##..#.#####.#",
+    "#..#..#.....#.#", "##.#.#####..#.#", "#..#.....#..#.#",
+    "#..####.#..#..#", "#......#.#.##.#", "####.#...#....#",
+    "#....###.####.#", "#.##.....#....#", "#..#####.#.##.#",
+    "#......#......#", "#....#........E", "###############"
+  ]
+];
+let maze = MAZES[0];
+const ROWS = maze.length;
+const COLS = maze[0].length;
+
+const LEVELS = [
+  { name: 'RESEARCH LAB', cards: 3, generators: 3, monsterSpeed: 2.05, chaseSpeed: 3.05, wallStyle: 1, monsterSpawns: [[11,12],[9,12],[13,3]] },
+  { name: 'CONTAINMENT WING', cards: 4, generators: 4, monsterSpeed: 2.55, chaseSpeed: 3.7, wallStyle: 2, monsterSpawns: [[1,8],[13,1],[10,13]] },
+  { name: 'THE CORE', cards: 5, generators: 5, monsterSpeed: 3.05, chaseSpeed: 4.3, wallStyle: 3, monsterSpawns: [[1,7],[13,1],[10,13]] }
+];
+let currentLevel = 1;
+let levelComplete = false;
+let totalCards = 3;
+let generatorsRestored = 0, totalGenerators = 3;
+let generatorOpen = false, generatorIndex = -1;
+let generatorSequence = [], generatorInput = [];
+const generators = [];
+
+function worldPos(row, col) {
+  return new THREE.Vector3(
+    (col - (COLS - 1) / 2) * TILE,
+    0,
+    (row - (ROWS - 1) / 2) * TILE
+  );
+}
+function isOpen(row, col) {
+  return row >= 0 && row < ROWS &&
+         col >= 0 && col < COLS &&
+         maze[row][col] !== '#';
+}
+function cellAt(pos) {
+  return {
+    row: Math.round(pos.z / TILE + (ROWS - 1) / 2),
+    col: Math.round(pos.x / TILE + (COLS - 1) / 2)
+  };
+}
+function cellKey(row, col) { return `${row},${col}`; }
+
+// ----------------------------------------------------
+// SCENE AND PERFORMANCE
+// ----------------------------------------------------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080e12);
+scene.fog = new THREE.FogExp2(0x080e12, 0.027);
+
+const camera = new THREE.PerspectiveCamera(
+  76, innerWidth / innerHeight, 0.1, 100
+);
+camera.rotation.order = 'YXZ';
+camera.position.copy(worldPos(1, 1));
+camera.position.y = PLAYER_HEIGHT;
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  powerPreference: 'high-performance'
+});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+renderer.shadowMap.enabled = false;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0x9cb6c6, 0x171a1b, 1.15));
+scene.add(new THREE.AmbientLight(0x65747c, 0.65));
+
+// ----------------------------------------------------
+// PROCEDURAL TEXTURES — NO EXTRA IMAGE DOWNLOADS
+// ----------------------------------------------------
+function makeTexture(base, speckles, grid = false) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, 256, 256);
+
+  for (let i = 0; i < 1700; i++) {
+    const shade = Math.floor(Math.random() * 50);
+    ctx.fillStyle = `rgba(${speckles},${shade / 100})`;
+    const size = Math.random() * 3 + 1;
+    ctx.fillRect(Math.random() * 256, Math.random() * 256, size, size);
+  }
+  if (grid) {
+    ctx.strokeStyle = 'rgba(180,200,205,.09)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 256; i += 32) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke();
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+const wallTexture = makeTexture('#343d40', '220,235,235', true);
+const floorTexture = makeTexture('#242c2e', '180,190,185', true);
+floorTexture.repeat.set(8, 8);
+
+function makeScaryTexture(level) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = level === 2 ? '#352b28' : '#17191d';
+  ctx.fillRect(0, 0, 256, 256);
+
+  // Grain, stains, and tiny surface flecks.
+  for (let i = 0; i < 2200; i++) {
+    const x = Math.random() * 256;
+    const y = Math.random() * 256;
+    const size = Math.random() * (level === 3 ? 4 : 3) + 1;
+    if (level === 2) {
+      ctx.fillStyle = Math.random() > 0.48
+        ? `rgba(135,65,35,${Math.random() * 0.22})`
+        : `rgba(190,170,150,${Math.random() * 0.10})`;
+    } else {
+      ctx.fillStyle = Math.random() > 0.55
+        ? `rgba(135,20,28,${Math.random() * 0.24})`
+        : `rgba(150,160,170,${Math.random() * 0.08})`;
+    }
+    ctx.fillRect(x, y, size, size);
+  }
+
+  // Concrete seams.
+  ctx.strokeStyle = level === 2 ? 'rgba(190,135,95,.13)' : 'rgba(160,70,80,.15)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i <= 256; i += 64) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke();
+  }
+
+  // Jagged cracks.
+  for (let i = 0; i < (level === 2 ? 9 : 16); i++) {
+    let x = Math.random() * 256;
+    let y = Math.random() * 256;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    for (let j = 0; j < 5; j++) {
+      x += (Math.random() - 0.5) * 34;
+      y += Math.random() * 24;
+      ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = level === 2
+      ? 'rgba(12,9,8,.55)'
+      : 'rgba(120,15,26,.58)';
+    ctx.lineWidth = Math.random() * 2 + 0.7;
+    ctx.stroke();
+  }
+
+  // Rust runs in Level 2; unsettling red smears in Level 3.
+  for (let i = 0; i < 11; i++) {
+    const x = Math.random() * 256;
+    const y = Math.random() * 180;
+    const h = 18 + Math.random() * 70;
+    const w = 2 + Math.random() * 8;
+    ctx.fillStyle = level === 2
+      ? `rgba(130,54,25,${Math.random() * 0.32})`
+      : `rgba(105,8,20,${Math.random() * 0.36})`;
+    ctx.fillRect(x, y, w, h);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+const wallTextures = [
+  wallTexture,
+  makeScaryTexture(2),
+  makeScaryTexture(3)
+];
+
+const concreteMat = new THREE.MeshStandardMaterial({
+  map: wallTexture, color: 0x879295, roughness: 0.96
+});
+const floorMat = new THREE.MeshStandardMaterial({
+  map: floorTexture, color: 0x8b9797, roughness: 0.94
+});
+const ceilingMat = new THREE.MeshStandardMaterial({
+  color: 0x252e31, roughness: 1, side: THREE.DoubleSide
+});
+const metalMat = new THREE.MeshStandardMaterial({
+  color: 0x424d50, metalness: 0.72, roughness: 0.55
+});
+const darkMetalMat = new THREE.MeshStandardMaterial({
+  color: 0x171f22, metalness: 0.6, roughness: 0.7
+});
+const pipeMat = new THREE.MeshStandardMaterial({
+  color: 0x59676a, metalness: 0.8, roughness: 0.4
+});
+const yellowMat = new THREE.MeshStandardMaterial({
+  color: 0xd6a92e, roughness: 0.7
+});
+const redMat = new THREE.MeshStandardMaterial({
+  color: 0x8b2025, roughness: 0.65
+});
+const whiteMat = new THREE.MeshStandardMaterial({
+  color: 0xaab9b8, roughness: 0.8
+});
+
+function applyLevelAppearance() {
+  const style = LEVELS[currentLevel - 1].wallStyle;
+  concreteMat.map = wallTextures[style - 1];
+  concreteMat.color.setHex(style === 1 ? 0x879295 : style === 2 ? 0x9a7768 : 0x68636b);
+  concreteMat.needsUpdate = true;
+
+  if (style === 1) {
+    scene.background.setHex(0x080e12);
+    scene.fog.color.setHex(0x080e12);
+    floorMat.color.setHex(0x8b9797);
+  } else if (style === 2) {
+    scene.background.setHex(0x100b0a);
+    scene.fog.color.setHex(0x100b0a);
+    floorMat.color.setHex(0x665c59);
+  } else {
+    scene.background.setHex(0x090609);
+    scene.fog.color.setHex(0x090609);
+    floorMat.color.setHex(0x51474e);
+  }
+
+  const levelLabel = document.getElementById('levelLabel');
+  if (levelLabel) levelLabel.textContent = currentLevel === 1
+    ? 'SECTOR 07'
+    : LEVELS[currentLevel - 1].name;
+}
+
+// ----------------------------------------------------
+// BUILD THE FACILITY
+// ----------------------------------------------------
+function addBox(parent, size, position, material, rotationY = 0) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(size[0], size[1], size[2]), material
+  );
+  mesh.position.set(position[0], position[1], position[2]);
+  mesh.rotation.y = rotationY;
+  parent.add(mesh);
+  return mesh;
+}
+
+function addCylinder(parent, radius, length, position, material, axis = 'y') {
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, length, 8),
+    material
+  );
+
+  mesh.position.set(...position);
+
+  if (axis === 'x') mesh.rotation.z = Math.PI / 2;
+  if (axis === 'z') mesh.rotation.x = Math.PI / 2;
+
+  parent.add(mesh);
+  return mesh;
+}
+
+// One continuous floor and ceiling, rather than one mesh per tile.
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(COLS * TILE, ROWS * TILE), floorMat
+);
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -0.08;
+scene.add(floor);
+
+const ceiling = new THREE.Mesh(
+  new THREE.PlaneGeometry(COLS * TILE, ROWS * TILE), ceilingMat
+);
+ceiling.rotation.x = Math.PI / 2;
+ceiling.position.y = WALL_HEIGHT;
+scene.add(ceiling);
+
+const wallGeometry = new THREE.BoxGeometry(TILE, WALL_HEIGHT, TILE);
+let wallGroup = new THREE.Group();
+scene.add(wallGroup);
+function rebuildMazeWalls() {
+  scene.remove(wallGroup);
+  wallGroup = new THREE.Group();
+  scene.add(wallGroup);
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (maze[r][c] !== '#') continue;
+      const wall = new THREE.Mesh(wallGeometry, concreteMat);
+      const p = worldPos(r,c);
+      wall.position.set(p.x, WALL_HEIGHT / 2, p.z);
+      wallGroup.add(wall);
+      addBox(wallGroup, [TILE,0.18,TILE], [p.x,0.18,p.z], darkMetalMat);
+      addBox(wallGroup, [TILE,0.12,TILE], [p.x,WALL_HEIGHT-0.3,p.z], metalMat);
+    }
+  }
+}
+rebuildMazeWalls();
+
+for (let r = 1; r < ROWS - 1; r++) {
+  for (let c = 1; c < COLS - 1; c++) {
+    if (!isOpen(r, c)) continue;
+    const p = worldPos(r, c);
+
+    if (!isOpen(r, c - 1) && (r % 3 === 0)) {
+      addCylinder(scene, 0.09, TILE * 0.86,
+        [p.x - TILE * 0.49, 2.85, p.z], pipeMat, 'z');
+      addCylinder(scene, 0.055, TILE * 0.86,
+        [p.x - TILE * 0.49, 3.15, p.z], metalMat, 'z');
+    }
+    if (!isOpen(r - 1, c) && (c % 4 === 0)) {
+      addCylinder(scene, 0.08, TILE * 0.86,
+        [p.x, 3.25, p.z - TILE * 0.49], pipeMat, 'x');
+    }
+  }
+}
+
+function addCabinet(row, col, side = 1) {
+  const p = worldPos(row, col);
+  const group = new THREE.Group();
+  group.position.set(p.x + side * 1.22, 0, p.z);
+  scene.add(group);
+
+  addBox(group, [0.65, 1.65, 0.85], [0, 0.95, 0], metalMat);
+  addBox(group, [0.5, 1.35, 0.07], [0, 0.97, 0.45], darkMetalMat);
+  addBox(group, [0.38, 0.045, 0.04], [0, 1.35, 0.5], whiteMat);
+  addBox(group, [0.08, 0.08, 0.05], [0.14, 0.75, 0.5], redMat);
+  addBox(group, [0.08, 0.08, 0.05], [-0.14, 0.75, 0.5], yellowMat);
+  addBox(group, [0.7, 0.06, 0.9], [0, 1.82, 0], darkMetalMat);
+}
+
+[
+  [3,2,-1], [5,4,1], [5,10,-1], [7,11,1],
+  [9,2,-1], [11,6,1], [11,12,-1], [3,11,1]
+].forEach(([r,c,s]) => {
+  if (isOpen(r,c)) addCabinet(r,c,s);
+});
+
+function makeSignTexture(text, bg = '#9c2929') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512; canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#151b1c'; ctx.fillRect(0,0,512,128);
+  ctx.fillStyle = bg; ctx.fillRect(8,8,496,112);
+  ctx.fillStyle = '#f3e9c9';
+  ctx.font = 'bold 35px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 256, 64, 470);
+  const t = new THREE.CanvasTexture(canvas);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+const signMaterials = [
+  new THREE.MeshStandardMaterial({
+    map: makeSignTexture('AUTHORIZED PERSONNEL ONLY'), roughness: 0.9
+  }),
+  new THREE.MeshStandardMaterial({
+    map: makeSignTexture('BIOHAZARD // SECTOR 07', '#a56f19'), roughness: 0.9
+  }),
+  new THREE.MeshStandardMaterial({
+    map: makeSignTexture('CONTAINMENT FAILURE', '#8b171b'), roughness: 0.9
+  })
+];
+
+function addSign(row, col, side = 1, index = 0) {
+  const p = worldPos(row, col);
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.65, 0.42), signMaterials[index % signMaterials.length]
+  );
+  sign.position.set(p.x + side * 1.88, 2.55, p.z);
+  sign.rotation.y = side === 1 ? -Math.PI / 2 : Math.PI / 2;
+  scene.add(sign);
+}
+
+[
+  [2,2,-1,0], [4,7,1,1], [6,1,-1,2],
+  [8,10,1,0], [10,7,-1,1], [12,2,-1,2]
+].forEach(([r,c,s,i]) => {
+  if (isOpen(r,c)) addSign(r,c,s,i);
+});
+
+const lampPositions = [
+  [1,3], [1,10], [3,7], [5,2], [5,11],
+  [7,4], [7,10], [9,2], [9,12], [11,7], [13,3], [13,12]
+];
+
+for (let i = 0; i < lampPositions.length; i++) {
+  const [r,c] = lampPositions[i];
+  if (!isOpen(r,c)) continue;
+  const p = worldPos(r,c);
+
+  addBox(scene, [1.15, 0.09, 0.48], [p.x, WALL_HEIGHT - 0.12, p.z],
+    new THREE.MeshStandardMaterial({
+      color: i % 4 === 0 ? 0x8b3334 : 0x85999b,
+      emissive: i % 4 === 0 ? 0x4c090b : 0x223f44,
+      emissiveIntensity: 1.1
+    }));
+
+  const light = new THREE.PointLight(
+    i % 4 === 0 ? 0xff3535 : 0xb8e6ed,
+    i % 4 === 0 ? 3.0 : 2.3, 10, 2
+  );
+  light.position.set(p.x, WALL_HEIGHT - 0.3, p.z);
+  scene.add(light);
+}
+
+// ----------------------------------------------------
+// PLAYER AND FLASHLIGHT
+// ----------------------------------------------------
+const player = {
+  position: camera.position,
+  yaw: 0,
+  pitch: 0,
+  stamina: 100,
+  flashlightOn: true
+};
+
+const flashlight = new THREE.SpotLight(
+  0xd9f0ff, 170, 30, Math.PI / 5.1, 0.45, 1.2
+);
+flashlight.position.copy(camera.position);
+scene.add(flashlight);
+scene.add(flashlight.target);
+
+const flashlightBulb = new THREE.PointLight(0xcde9ff, 1.1, 3, 2);
+scene.add(flashlightBulb);
+
+function syncFlashlightVisibility() {
+  flashlight.visible = player.flashlightOn;
+  flashlightBulb.visible = player.flashlightOn;
+}
+
+const keys = {};
+let running = false;
+let gameOver = false;
+let won = false;
+let elapsed = 0;
+let monsterDistance = 100;
+let monsterTarget = null;
+let pathRefresh = 0;
+let monsterPath = [];
+let spiderPath = [];
+let wardenPath = [];
+let spiderDistance = 100;
+let wardenDistance = 100;
+let wardenAwakeAt = 12;
+let spiderPounceTimer = 4;
+let spiderPounceUntil = 0;
+let lastStepSound = 0;
+// Sprint cannot reactivate after depletion until Shift is released and pressed again.
+let sprintLockedUntilRelease = false;
+
+const hud = document.getElementById('hud');
+const overlay = document.getElementById('overlay');
+const title = document.getElementById('title');
+const description = document.getElementById('description');
+const startButton = document.getElementById('startButton');
+const objectiveText = document.getElementById('objectiveText');
+const statusText = document.getElementById('status');
+const cardsText = document.getElementById('cards');
+const generatorCountText = document.getElementById('generatorCount');
+const generatorOverlay = document.getElementById('generatorOverlay');
+const staminaFill = document.getElementById('staminaFill');
+const promptText = document.getElementById('prompt');
+const dangerOverlay = document.getElementById('danger');
+const mapPanel = document.getElementById('mapPanel');
+const mapCanvas = document.getElementById('mapCanvas');
+const mapCtx = mapCanvas.getContext('2d');
+const MAP_PASSCODE = '#Sup3rSc@ryEnt!ty6';
+let mapUnlocked = false;
+let mapVisible = false;
+let loreOpen = false;
+let currentLore = null;
+let loreItems = [];
+let loreCollected = new Set();
+const lorePanel = document.getElementById('lorePanel');
+const loreTitle = document.getElementById('loreTitle');
+const loreText = document.getElementById('loreText');
+const loreIndex = document.getElementById('loreIndex');
+const LORE = [
+  [
+    ['SHIFT LOG 01 — ARRIVAL', 'The night crew reported a power fluctuation at 02:14. The main doors sealed automatically. Security insists the lockdown was triggered by a routine pressure test.'],
+    ['MAINTENANCE NOTE', 'The corridor cameras have been recording the same empty hallway for six hours. The technician assigned to the feed has not checked in.'],
+    ['INCIDENT SUMMARY', 'A staff badge was found beside the elevator. Its owner was listed as evacuated, but the evacuation roster has no departure time.']
+  ],
+  [
+    ['RESEARCH MEMO 02', 'The containment readings rise whenever the backup lights switch on. Staff are instructed to use the marked routes and avoid the observation wing.'],
+    ['PERSONNEL EMAIL', 'I heard footsteps in the ventilation shaft above the lab. They stopped whenever I stopped. I am requesting reassignment until the facility is cleared.'],
+    ['SECURITY TRANSCRIPT', 'Operator: There are two movement signatures.\nSupervisor: The second one is a sensor fault.\nOperator: Then why is it standing behind the first one?']
+  ],
+  [
+    ['FINAL REPORT — REDACTED', 'The containment doors were never breached from the outside. Every access log shows the same badge entering the lower sector, even after that badge was recovered upstairs.'],
+    ['RECOVERY TEAM NOTE', 'Do not follow voices over the intercom. The system has been disconnected from the public-address network since the incident.'],
+    ['LAST MESSAGE', 'If you found this, the exit route may still be open. Do not wait for the lights. Do not turn around when you hear the second set of footsteps.']
+  ]
+];
+
+function drawDebugMap() {
+  if (!mapUnlocked || !mapVisible) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(300, mapCanvas.clientWidth);
+  const h = Math.max(300, mapCanvas.clientHeight);
+  mapCanvas.width = w * dpr; mapCanvas.height = h * dpr;
+  mapCtx.setTransform(dpr,0,0,dpr,0,0);
+  mapCtx.clearRect(0,0,w,h);
+  const cell = Math.min(w / COLS, h / ROWS);
+  const ox = (w - cell * COLS) / 2, oy = (h - cell * ROWS) / 2;
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    mapCtx.fillStyle = maze[r][c] === '#' ? '#667176' : '#172326';
+    mapCtx.fillRect(ox+c*cell,oy+r*cell,cell-1,cell-1);
+  }
+  for (const card of keycards) if (!card.taken) {
+    const cc = cellAt(card.mesh.position);
+    mapCtx.fillStyle='#65f0cc'; mapCtx.beginPath(); mapCtx.arc(ox+(cc.col+.5)*cell,oy+(cc.row+.5)*cell,Math.max(3,cell*.22),0,Math.PI*2); mapCtx.fill();
+  }
+  for(const gen of generators) if(!gen.restored) {
+    const gc=cellAt(gen.group.position); mapCtx.fillStyle='#4aa6ff';
+    mapCtx.fillRect(ox+(gc.col+.3)*cell,oy+(gc.row+.3)*cell,Math.max(4,cell*.4),Math.max(4,cell*.4));
+  }
+  const drawThreat=(position,color,radius=0.28)=>{const p=cellAt(position);mapCtx.fillStyle=color;mapCtx.beginPath();mapCtx.arc(ox+(p.col+.5)*cell,oy+(p.row+.5)*cell,Math.max(4,cell*radius),0,Math.PI*2);mapCtx.fill();};
+  drawThreat(monster.position,'#ff3434');
+  if(spiderMonster && spiderMonster.visible) drawThreat(spiderMonster.position,'#ff9b32',0.31);
+  if(wardenMonster && wardenMonster.visible) drawThreat(wardenMonster.position,'#d58bff',0.31);
+  const pc=cellAt(camera.position); mapCtx.fillStyle='#ffe16b'; mapCtx.beginPath(); mapCtx.arc(ox+(pc.col+.5)*cell,oy+(pc.row+.5)*cell,Math.max(4,cell*.28),0,Math.PI*2); mapCtx.fill();
+  mapCtx.fillStyle='#dce7e9'; mapCtx.font='12px monospace'; mapCtx.fillText('PLAYER',8,15); mapCtx.fillStyle='#ffe16b'; mapCtx.fillRect(55,7,8,8); mapCtx.fillStyle='#65f0cc'; mapCtx.fillRect(78,7,8,8); mapCtx.fillStyle='#ff3434'; mapCtx.fillRect(101,7,8,8); mapCtx.fillStyle='#ff9b32'; mapCtx.fillRect(124,7,8,8); mapCtx.fillStyle='#d58bff'; mapCtx.fillRect(147,7,8,8); mapCtx.fillText('OG / SPIDER / WARDEN',163,15);
+  document.getElementById('mapLevel').textContent=`LEVEL ${currentLevel} — ${LEVELS[currentLevel-1].name}`;
+}
+function toggleDebugMap() {
+  if (!mapUnlocked) {
+    const entered = window.prompt('PLAYTEST MAP PASSCODE');
+    if (entered !== MAP_PASSCODE) { if (entered !== null) window.alert('Incorrect passcode.'); return; }
+    mapUnlocked = true;
+  }
+  mapVisible = !mapVisible;
+  mapPanel.style.display = mapVisible ? 'block' : 'none';
+  drawDebugMap();
+}
+document.getElementById('closeMap').addEventListener('click', () => { mapVisible=false; mapPanel.style.display='none'; });
+
+// ----------------------------------------------------
+// RECOVERABLE LORE DOCUMENTS
+// ----------------------------------------------------
+const loreMaterial = new THREE.MeshStandardMaterial({ color:0xd7d2b8, emissive:0x332b18, emissiveIntensity:0.35, roughness:0.8 });
+const loreGlowMaterial = new THREE.MeshBasicMaterial({ color:0xe5bd67, transparent:true, opacity:0.18, side:THREE.DoubleSide, depthWrite:false });
+function createLoreItem(r,c,index,level) {
+  const pos=worldPos(r,c); const group=new THREE.Group(); group.position.set(pos.x,0.42,pos.z);
+  const paper=new THREE.Mesh(new THREE.BoxGeometry(0.48,0.06,0.62),loreMaterial); group.add(paper);
+  const mark=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.012,0.035),new THREE.MeshBasicMaterial({color:0x4c5148})); mark.position.y=0.04; group.add(mark);
+  const glow=new THREE.Mesh(new THREE.CircleGeometry(0.62,18),loreGlowMaterial); glow.rotation.x=-Math.PI/2; glow.position.y=-0.38; group.add(glow);
+  scene.add(group); loreItems.push({mesh:group,index,level,taken:false});
+}
+function spawnLoreForLevel() {
+  for(const item of loreItems) scene.remove(item.mesh); loreItems.length=0;
+  const level=currentLevel, used=new Set();
+  const cardCells=new Set(keycards.map(k=>{const c=cellAt(k.mesh.position);return `${c.row},${c.col}`}));
+  for(const gen of generators) { const c=cellAt(gen.group.position); cardCells.add(`${c.row},${c.col}`); }
+  const monsterCell=cellAt(monster.position);
+  const candidates=[];
+  for(let r=1;r<ROWS-1;r++) for(let c=1;c<COLS-1;c++) {
+    if(isOpen(r,c)&&!(r===1&&c===1)&&!(r===13&&c===14)&&!cardCells.has(`${r},${c}`)&&Math.hypot(r-monsterCell[0],c-monsterCell[1])>2.2) candidates.push([r,c]);
+  }
+  for(let i=0;i<3;i++) {
+    let pool=candidates.filter(([r,c])=>!used.has(`${r},${c}`)); if(!pool.length) break;
+    const pick=pool[Math.floor(Math.random()*pool.length)]; used.add(`${pick[0]},${pick[1]}`); createLoreItem(pick[0],pick[1],i,level);
+  }
+}
+function nearestLoreItem() {
+  let best=null,dist=Infinity; for(const item of loreItems) if(!item.taken) { const d=Math.hypot(camera.position.x-item.mesh.position.x,camera.position.z-item.mesh.position.z); if(d<dist){dist=d;best=item;} }
+  return dist<2.2?best:null;
+}
+function openLore(item) {
+  if(!item||loreOpen) return; item.taken=true; scene.remove(item.mesh); loreCollected.add(`${item.level}-${item.index}`); currentLore=item; loreOpen=true; running=false;
+  const data=LORE[item.level-1][item.index]; loreTitle.textContent=data[0]; loreText.textContent=data[1];
+  loreIndex.textContent=`SECTOR ${item.level} // FILE ${item.index+1} OF 3`; lorePanel.classList.remove('hidden'); promptText.textContent='';
+}
+function closeLore() { if(!loreOpen)return; loreOpen=false; currentLore=null; lorePanel.classList.add('hidden'); if(!gameOver&&!won&&!levelComplete&&document.pointerLockElement===renderer.domElement) running=true; }
+document.getElementById('closeLore').addEventListener('click',closeLore);
+
+// ----------------------------------------------------
+// KEYCARDS
+// ----------------------------------------------------
+const keycards = [];
+let collected = 0;
+
+const cardMat = new THREE.MeshStandardMaterial({
+  color: 0x65f0cc, emissive: 0x087b61, emissiveIntensity: 2.0,
+  metalness: 0.4, roughness: 0.35
+});
+const cardGlowMat = new THREE.MeshBasicMaterial({
+  color: 0x65f0cc, transparent: true, opacity: 0.12,
+  side: THREE.DoubleSide, depthWrite: false
+});
+
+function createKeycard(r, c) {
+  const p = worldPos(r, c);
+  const group = new THREE.Group();
+  group.position.set(p.x, 0.85, p.z);
+
+  const card = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.08,0.62), cardMat);
+  group.add(card);
+
+  const stripe = new THREE.Mesh(
+    new THREE.BoxGeometry(0.26,0.012,0.09),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  );
+  stripe.position.y = 0.05;
+  group.add(stripe);
+
+  const glow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.72,20), cardGlowMat
+  );
+  glow.rotation.x = -Math.PI / 2;
+  glow.position.y = -0.72;
+  group.add(glow);
+
+  const light = new THREE.PointLight(0x50eaca, 1.1, 4, 2);
+  light.position.y = 0.3;
+  group.add(light);
+
+  scene.add(group);
+  keycards.push({ mesh: group, taken: false });
+}
+
+// Each objective has an authored maze-region anchor and three nearby valid spawn alternatives.
+const KEYCARD_SPAWN_ANCHORS = [
+  [[5,2],[5,12],[11,2],[11,12],[7,7]],
+  [[3,2],[5,10],[11,2],[11,12],[7,10]],
+  [[3,2],[5,12],[11,2],[11,12],[7,7]]
+];
+const GENERATOR_SPAWN_ANCHORS = [
+  [[1,7],[13,1],[10,13],[7,4],[2,13]],
+  [[1,8],[13,1],[10,13],[5,3],[3,13]],
+  [[1,7],[13,1],[10,13],[7,4],[2,13]]
+];
+function manhattan(a,b) { return Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1]); }
+function cellCandidates(anchor,reserved=new Set(),radius=2) {
+  const options=[];
+  for(let r=1;r<ROWS-1;r++) for(let c=1;c<COLS-1;c++) {
+    const id=`${r},${c}`;
+    if(!isOpen(r,c)||reserved.has(id)||(r===1&&c===1)||(r===13&&c===14)) continue;
+    const tooNearReserved=[...reserved].some(value=>{
+      const [rr,cc]=value.split(',').map(Number);
+      return manhattan([r,c],[rr,cc])<4;
+    });
+    if(!tooNearReserved&&manhattan([r,c],anchor)<=radius) options.push([r,c]);
+  }
+  return options;
+}
+function chooseAnchoredSpawns(anchors,count,reservedCells=new Set(),minimumGap=4) {
+  const chosen=[],used=new Set(reservedCells);
+  for(const anchor of anchors.slice(0,count)) {
+    let options=cellCandidates(anchor,used,2);
+    if(options.length<3) options=cellCandidates(anchor,used,3);
+    options.sort(()=>Math.random()-0.5);
+    // Exactly three authored alternatives per objective; select one randomly each run.
+    const threeSpawnOptions=options.slice(0,3);
+    let pick=threeSpawnOptions.find(cell=>chosen.every(other=>manhattan(cell,other)>=minimumGap));
+    if(!pick) pick=options.find(cell=>chosen.every(other=>manhattan(cell,other)>=2));
+    if(!pick) {
+      const fallback=[];
+      for(let r=1;r<ROWS-1;r++) for(let c=1;c<COLS-1;c++)
+        if(isOpen(r,c)&&!used.has(`${r},${c}`)&&!(r===1&&c===1)&&!(r===13&&c===14)&&
+          [...used].every(value=>{const [rr,cc]=value.split(',').map(Number);return manhattan([r,c],[rr,cc])>=4;})) fallback.push([r,c]);
+      pick=fallback.sort((a,b)=>Math.min(...chosen.map(x=>manhattan(b,x)),99)-Math.min(...chosen.map(x=>manhattan(a,x)),99))[0];
+    }
+    if(!pick) continue;
+    used.add(`${pick[0]},${pick[1]}`); chosen.push(pick);
+  }
+  return chosen;
+}
+function spawnCardsForLevel() {
+  for(const card of keycards) scene.remove(card.mesh);
+  keycards.length=0; collected=0;
+  const config=LEVELS[currentLevel-1]; totalCards=config.cards;
+  const mc=cellAt(monster.position);
+  const reserved=new Set([`${mc.row},${mc.col}`]);
+  chooseAnchoredSpawns(KEYCARD_SPAWN_ANCHORS[currentLevel-1],totalCards,reserved,4)
+    .forEach(([r,c])=>createKeycard(r,c));
+  updateObjective();
+}
+
+// ----------------------------------------------------
+// GENERATORS — TASK PROTOCOL SEQUENCE CHALLENGE
+// ----------------------------------------------------
+const generatorMetalMat=new THREE.MeshStandardMaterial({color:0x172326,metalness:0.65,roughness:0.55});
+const generatorScreenMat=new THREE.MeshStandardMaterial({color:0x1c5c50,emissive:0x087b61,emissiveIntensity:1.5,metalness:0.5,roughness:0.4});
+const generatorLightMat=new THREE.MeshBasicMaterial({color:0x65f0cc});
+const generatorGlowMat=new THREE.MeshBasicMaterial({color:0x65f0cc,transparent:true,opacity:0.13,side:THREE.DoubleSide,depthWrite:false});
+function createGenerator(r,c,index) {
+  const p=worldPos(r,c),g=new THREE.Group(); g.position.set(p.x,0,p.z);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.15,1.35,0.8),generatorMetalMat); body.position.y=0.68; g.add(body);
+  const screen=new THREE.Mesh(new THREE.BoxGeometry(0.88,0.58,0.08),generatorScreenMat); screen.position.set(0,1.12,0.44); g.add(screen);
+  const stripe=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.045,0.035),generatorLightMat); stripe.position.set(0,1.5,0.49); g.add(stripe);
+  const beacon=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.14,10),generatorLightMat); beacon.position.set(0,1.62,0); g.add(beacon);
+  const glow=new THREE.Mesh(new THREE.CircleGeometry(0.82,22),generatorGlowMat); glow.rotation.x=-Math.PI/2; glow.position.y=0.015; g.add(glow);
+  const light=new THREE.PointLight(0x36e8b7,0.9,5); light.position.set(0,1.4,0.5); g.add(light);
+  scene.add(g); generators.push({group:g,index,restored:false,phase:Math.random()*6});
+}
+function spawnGeneratorsForLevel() {
+  for(const item of generators) scene.remove(item.group);
+  generators.length=0; generatorsRestored=0;
+  totalGenerators=LEVELS[currentLevel-1].generators;
+  const mc=cellAt(monster.position),reserved=new Set([`${mc.row},${mc.col}`]);
+  for(const card of keycards) { const c=cellAt(card.mesh.position); reserved.add(`${c.row},${c.col}`); }
+  chooseAnchoredSpawns(GENERATOR_SPAWN_ANCHORS[currentLevel-1],totalGenerators,reserved,4)
+    .forEach(([r,c],i)=>createGenerator(r,c,i));
+  updateObjective();
+}
+function nearestGenerator() {
+  let best=null,dist=Infinity;
+  for(const item of generators) if(!item.restored) {
+    const d=Math.hypot(camera.position.x-item.group.position.x,camera.position.z-item.group.position.z);
+    if(d<dist){dist=d;best=item;}
+  }
+  return dist<2.4?best:null;
+}
+function openGenerator(item) {
+  if(!item||item.restored||generatorOpen)return;
+  generatorIndex=item.index; generatorOpen=true; running=false;
+  generatorSequence=Array.from({length:4},()=>1+Math.floor(Math.random()*4)); generatorInput=[];
+  document.getElementById('generatorTitle').textContent=`GENERATOR ${String(item.index+1).padStart(2,'0')} // CONTROL UNIT`;
+  document.getElementById('generatorDescription').textContent='Restore the auxiliary generator circuits. Enter the displayed access sequence.';
+  document.getElementById('generatorSequence').textContent=generatorSequence.join('  ');
+  document.getElementById('generatorFeedback').textContent='';
+  generatorOverlay.classList.remove('hidden'); document.exitPointerLock?.();
+}
+function closeGenerator() {
+  if(!generatorOpen)return;
+  generatorOpen=false; generatorOverlay.classList.add('hidden');
+  if(!gameOver&&!won&&!levelComplete) { renderer.domElement.requestPointerLock?.(); running=true; }
+}
+function enterGeneratorNumber(n) {
+  if(!generatorOpen)return;
+  generatorInput.push(n);
+  const feedback=document.getElementById('generatorFeedback'),i=generatorInput.length-1;
+  if(generatorInput[i]!==generatorSequence[i]) {
+    generatorInput=[]; feedback.style.color='#ff7777'; feedback.textContent='ACCESS DENIED — SEQUENCE RESET'; return;
+  }
+  feedback.style.color='#65f0cc'; feedback.textContent=`SEQUENCE ACCEPTED: ${generatorInput.length} / ${generatorSequence.length}`;
+  if(generatorInput.length===generatorSequence.length) {
+    const item=generators.find(x=>x.index===generatorIndex);
+    if(item&&!item.restored) { item.restored=true; scene.remove(item.group); generatorsRestored++; }
+    generatorOpen=false; generatorOverlay.classList.add('hidden'); updateObjective();
+    promptText.textContent='GENERATOR ONLINE // AUXILIARY POWER RESTORED';
+    if(!gameOver&&!won&&!levelComplete) { renderer.domElement.requestPointerLock?.(); running=true; }
+  }
+}
+document.querySelectorAll('[data-generator-key]').forEach(b=>b.addEventListener('click',()=>enterGeneratorNumber(Number(b.dataset.generatorKey))));
+document.getElementById('closeGenerator').addEventListener('click',closeGenerator);
+
+// ----------------------------------------------------
+// EXIT TERMINAL
+// ----------------------------------------------------
+let exitPosition = worldPos(13,14);
+const exitGroup = new THREE.Group();
+exitGroup.position.set(exitPosition.x, 0, exitPosition.z);
+scene.add(exitGroup);
+
+addBox(exitGroup, [1.65,3.3,0.32], [0,1.65,0], darkMetalMat);
+addBox(exitGroup, [1.35,2.95,0.1], [0,1.65,0.2], metalMat);
+addBox(exitGroup, [1.1,0.12,0.06], [0,2.65,0.28], yellowMat);
+addBox(exitGroup, [0.6,0.1,0.06], [0,0.9,0.28], redMat);
+
+const exitLamp = new THREE.PointLight(0xff3030, 2.5, 8, 2);
+exitLamp.position.set(exitPosition.x, 3, exitPosition.z);
+scene.add(exitLamp);
+
+const terminal = addBox(
+  exitGroup, [0.42,0.52,0.15], [0.7,1.3,0.42],
+  new THREE.MeshStandardMaterial({
+    color: 0x153b35, emissive: 0x0a8b65, emissiveIntensity: 0.8
+  })
+);
+
+// ----------------------------------------------------
+// MONSTER — CUSTOM ARTICULATED CREATURE
+// ----------------------------------------------------
+const monster = new THREE.Group();
+scene.add(monster);
+
+const skinMat = new THREE.MeshStandardMaterial({
+  color: 0x111619, roughness: 0.88, metalness: 0.15
+});
+const skinHighlightMat = new THREE.MeshStandardMaterial({
+  color: 0x252d30, roughness: 0.75
+});
+const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff1010 });
+const mouthMat = new THREE.MeshStandardMaterial({
+  color: 0x020304, roughness: 1
+});
+
+function monsterSphere(parent, radius, position, material, scale = [1,1,1]) {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 10, 8), material
+  );
+  mesh.position.set(...position);
+  mesh.scale.set(...scale);
+  parent.add(mesh);
+  return mesh;
+}
+
+function monsterLimb(parent, length, radiusTop, radiusBottom, material) {
+  const pivot = new THREE.Group();
+  parent.add(pivot);
+  const limb = new THREE.Mesh(
+    new THREE.CylinderGeometry(radiusTop, radiusBottom, length, 7),
+    material
+  );
+  limb.position.y = -length / 2;
+  pivot.add(limb);
+
+  monsterSphere(pivot, radiusBottom * 0.9,
+    [0,-length,0], material, [1,1,1]);
+  return pivot;
+}
+
+const torso = new THREE.Group();
+monster.add(torso);
+monsterSphere(torso, 0.48, [0,1.95,0], skinMat, [0.75,1.75,0.48]);
+monsterSphere(torso, 0.3, [0,2.55,0], skinHighlightMat, [1.3,0.7,0.8]);
+
+addCylinder(torso, 0.12, 0.38, [0,2.85,0], skinMat);
+monsterSphere(torso, 0.34, [0,3.16,-0.015], skinMat, [0.8,1.15,0.8]);
+monsterSphere(torso, 0.24, [0,3.12,-0.2], mouthMat, [0.8,0.38,0.6]);
+
+for (const side of [-1,1]) {
+  monsterSphere(torso, 0.075, [side*0.135,3.2,-0.285], eyeMat);
+  monsterSphere(torso, 0.13, [side*0.32,2.6,0], skinMat, [0.9,1,0.9]);
+}
+
+const leftArm = monsterLimb(torso, 1.5, 0.075, 0.045, skinMat);
+leftArm.position.set(-0.4,2.55,0);
+const rightArm = monsterLimb(torso, 1.58, 0.075, 0.045, skinMat);
+rightArm.position.set(0.4,2.55,0);
+
+const leftLeg = monsterLimb(torso, 1.25, 0.12, 0.065, skinMat);
+leftLeg.position.set(-0.19,1.3,0);
+const rightLeg = monsterLimb(torso, 1.25, 0.12, 0.065, skinMat);
+rightLeg.position.set(0.19,1.3,0);
+
+for (const side of [-1,1]) {
+  monsterSphere(torso, 0.11,
+    [side*0.43,0.89,-0.02], skinMat, [0.8,1.5,0.8]);
+  for (let i = 0; i < 3; i++) {
+    monsterSphere(torso, 0.035,
+      [side*0.43 + (i-1)*0.06,0.75,-0.05], skinHighlightMat);
+  }
+}
+
+const monsterGlow = new THREE.PointLight(0xff1717, 1.4, 5, 2);
+monsterGlow.position.set(0,3.1,-0.25);
+monster.add(monsterGlow);
+
+const initialSpawn = LEVELS[0].monsterSpawns[Math.floor(Math.random() * 3)];
+monster.position.copy(worldPos(initialSpawn[0], initialSpawn[1]));
+monster.position.y = 0;
+monster.rotation.y = Math.PI;
+
+ 
+// ----------------------------------------------------
+
+// ----------------------------------------------------
+// ADDITIONAL LEVEL THREATS
+// LEVEL 2+: THE BROODLING — spider/human hybrid, skitters through
+// the maze and performs sudden, explosive pounces.
+// LEVEL 3: THE HOLLOW — a towering faceless stalker that advances
+// only while the player is not looking directly toward it.
+// ----------------------------------------------------
+const spiderMonster = new THREE.Group();
+scene.add(spiderMonster); spiderMonster.visible=false;
+const spiderMat=new THREE.MeshStandardMaterial({color:0x241b1b,roughness:0.93});
+const spiderPlateMat=new THREE.MeshStandardMaterial({color:0x49302b,roughness:0.8});
+const spiderJointMat=new THREE.MeshStandardMaterial({color:0x100d10,roughness:1});
+const spiderEyeMat=new THREE.MeshBasicMaterial({color:0xffa22e});
+const spiderLegPivots=[];
+const spiderBody=new THREE.Group(); spiderMonster.add(spiderBody);
+monsterSphere(spiderBody,0.43,[0,1.48,0],spiderMat,[0.78,1.45,0.72]);
+monsterSphere(spiderBody,0.29,[0,2.08,-0.02],spiderPlateMat,[1.05,0.78,0.9]);
+monsterSphere(spiderBody,0.27,[0,2.55,-0.09],spiderMat,[0.86,1.08,0.82]);
+monsterSphere(spiderBody,0.22,[0,2.51,-0.29],mouthMat,[0.9,0.48,0.45]);
+for(const side of [-1,1]) {
+  for(let eye=0;eye<3;eye++) monsterSphere(spiderBody,0.055,[side*(0.09+eye*0.09),2.63-(eye%2)*0.09,-0.31],spiderEyeMat,[1,1,0.7]);
+  for(let i=0;i<4;i++) {
+    const leg=new THREE.Group(); spiderMonster.add(leg);
+    leg.position.set(side*0.27,1.65,0.02+(i-1.5)*0.18);
+    const upper=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.085,0.82,7),spiderPlateMat);
+    upper.position.set(side*0.36,0.02,(i-1.5)*0.12); upper.rotation.z=side*-0.78; leg.add(upper);
+    const knee=new THREE.Mesh(new THREE.SphereGeometry(0.105,8,6),spiderJointMat);
+    knee.position.set(side*0.69,-0.25,(i-1.5)*0.15); leg.add(knee);
+    const lower=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.055,0.92,7),spiderMat);
+    lower.position.set(side*0.98,-0.61,(i-1.5)*0.2); lower.rotation.z=side*0.82; leg.add(lower);
+    spiderLegPivots.push({leg,side,index:i});
+  }
+}
+const spiderGlow=new THREE.PointLight(0xff6b26,1.25,5,2);
+spiderGlow.position.set(0,2.25,-0.25); spiderMonster.add(spiderGlow);
+
+const wardenMonster=new THREE.Group();
+scene.add(wardenMonster); wardenMonster.visible=false;
+const wardenMat=new THREE.MeshStandardMaterial({color:0x09090f,roughness:0.98});
+const wardenRibMat=new THREE.MeshStandardMaterial({color:0x35303d,roughness:0.86,metalness:0.12});
+const wardenVoidMat=new THREE.MeshBasicMaterial({color:0x020106});
+const wardenEyeMat=new THREE.MeshBasicMaterial({color:0xc18aff});
+const wardenBody=new THREE.Group(); wardenMonster.add(wardenBody);
+monsterSphere(wardenBody,0.44,[0,2.55,0],wardenMat,[0.62,2.65,0.5]);
+monsterSphere(wardenBody,0.25,[0,4.08,-0.04],wardenMat,[0.65,1.55,0.6]);
+monsterSphere(wardenBody,0.19,[0,4.02,-0.25],wardenVoidMat,[0.85,0.45,0.35]);
+for(let rib=0;rib<5;rib++) {
+  const arc=new THREE.Mesh(new THREE.TorusGeometry(0.34-rib*0.018,0.035,5,12,Math.PI),wardenRibMat);
+  arc.position.set(0,2.0+rib*0.34,-0.12); arc.rotation.z=Math.PI; wardenBody.add(arc);
+}
+for(const side of [-1,1]) {
+  monsterSphere(wardenBody,0.045,[side*0.105,4.12,-0.43],wardenEyeMat,[0.8,1.8,0.7]);
+  const arm=new THREE.Group(); wardenMonster.add(arm); arm.position.set(side*0.32,3.45,0);
+  const armMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.07,2.35,7),wardenMat);
+  armMesh.position.set(side*0.1,-1.0,0); armMesh.rotation.z=side*-0.12; arm.add(armMesh);
+  for(let finger=0;finger<3;finger++) {
+    const tendril=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.025,0.85,5),wardenRibMat);
+    tendril.position.set(side*(0.12+finger*0.06),-2.25,-0.02); tendril.rotation.z=side*(0.18+finger*0.12); arm.add(tendril);
+  }
+}
+const wardenGlow=new THREE.PointLight(0x8b35d1,1.7,7,2);
+wardenGlow.position.set(0,3.8,-0.2); wardenMonster.add(wardenGlow);
+
+const SPIDER_SPAWNS={2:[[1,13],[7,1],[13,9]],3:[[1,11],[7,13],[13,3]]};
+const WARDEN_SPAWNS=[[1,5],[7,1],[13,9]];
+let spiderPounceActive=false;
+let wardenHasAwakened=false;
+function chooseThreatSpawn(spots,avoidPositions=[]) {
+  const valid=spots.filter(([r,c])=>isOpen(r,c));
+  const pool=valid.length?valid:[[7,7]];
+  return pool.slice().sort((a,b)=>{
+    const score=([r,c])=>Math.min(...avoidPositions.map(pos=>{const cell=cellAt(pos);return Math.hypot(r-cell.row,c-cell.col);}),99);
+    return score(b)-score(a);
+  })[0];
+}
+function placeThreat(group,spots,avoidPositions=[]) {
+  const [r,c]=chooseThreatSpawn(spots,avoidPositions);
+  group.position.copy(worldPos(r,c)); group.position.y=0;
+  group.rotation.y=Math.random()*Math.PI*2;
+}
+function resetAdditionalThreats() {
+  spiderMonster.visible=currentLevel>=2;
+  wardenMonster.visible=currentLevel>=3;
+  spiderPounceTimer=3.5+Math.random()*2.5; spiderPounceUntil=0; spiderPounceActive=false;
+  spiderPath=[]; wardenPath=[]; spiderDistance=100; wardenDistance=100;
+  wardenHasAwakened=false; wardenAwakeAt=10+Math.random()*5;
+  if(spiderMonster.visible) placeThreat(spiderMonster,SPIDER_SPAWNS[currentLevel],[monster.position,camera.position]);
+  if(wardenMonster.visible) placeThreat(wardenMonster,WARDEN_SPAWNS,[monster.position,camera.position,spiderMonster.position]);
+}
+
+// MAZE-AWARE PATHFINDING (BREADTH-FIRST SEARCH)
+// ----------------------------------------------------
+function findPath(start, goal) {
+  if (!isOpen(start.row, start.col) || !isOpen(goal.row, goal.col)) {
+    return [];
+  }
+
+  const startKey = cellKey(start.row, start.col);
+  const goalKey = cellKey(goal.row, goal.col);
+  const queue = [{ row: start.row, col: start.col }];
+  const previous = new Map();
+  previous.set(startKey, null);
+
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+  while (queue.length) {
+    const current = queue.shift();
+    const currentKey = cellKey(current.row, current.col);
+
+    if (currentKey === goalKey) break;
+
+    for (const [dr, dc] of dirs) {
+      const nr = current.row + dr;
+      const nc = current.col + dc;
+      const nextKey = cellKey(nr, nc);
+
+      if (!isOpen(nr, nc) || previous.has(nextKey)) continue;
+
+      previous.set(nextKey, currentKey);
+      queue.push({ row: nr, col: nc });
+    }
+  }
+
+  if (!previous.has(goalKey)) return [];
+
+  const path = [];
+  let key = goalKey;
+
+  while (key !== startKey) {
+    const [r, c] = key.split(',').map(Number);
+    path.unshift({ row: r, col: c });
+    key = previous.get(key);
+  }
+
+  return path;
+}
+
+// ----------------------------------------------------
+// COLLISION AND PLAYER MOVEMENT
+// ----------------------------------------------------
+function canOccupy(x,z,radius=0.36) {
+  const samples=[
+    [x-radius,z],[x+radius,z],[x,z-radius],[x,z+radius],
+    [x-radius*.7,z-radius*.7],[x+radius*.7,z-radius*.7],
+    [x-radius*.7,z+radius*.7],[x+radius*.7,z+radius*.7]
+  ];
+
+  return samples.every(([sx, sz]) => {
+    const cell = cellAt({ x: sx, z: sz });
+    return isOpen(cell.row, cell.col);
+  });
+}
+
+function movePlayer(dx, dz) {
+  const nextX = camera.position.x + dx;
+  const nextZ = camera.position.z + dz;
+
+  // Axis-separated movement lets you slide along walls.
+  if (canOccupy(nextX, camera.position.z)) {
+    camera.position.x = nextX;
+  }
+
+  if (canOccupy(camera.position.x, nextZ)) {
+    camera.position.z = nextZ;
+  }
+}
+
+// ----------------------------------------------------
+// OBJECTIVES AND LEVEL STATE
+// ----------------------------------------------------
+function updateObjective() {
+  cardsText.textContent = `${collected} / ${totalCards}`;
+  generatorCountText.textContent = `${generatorsRestored} / ${totalGenerators}`;
+  if(collected<totalCards||generatorsRestored<totalGenerators) {
+    const cardNeed=totalCards-collected,genNeed=totalGenerators-generatorsRestored;
+    objectiveText.textContent=cardNeed>0?`Find ${cardNeed} keycard(s) and restore ${genNeed} generator(s).`:`Restore the remaining ${genNeed} generator(s).`;
+    statusText.textContent='FACILITY POWER: UNSTABLE'; statusText.style.color='#65f0cc';
+  } else {
+    objectiveText.textContent='Reach the exit and press E.';
+    statusText.textContent='EXIT ACCESS: AUTHORIZED'; statusText.style.color='#ffe16b';
+  }
+}
+
+// ----------------------------------------------------
+// DEATH AND VICTORY
+// ----------------------------------------------------
+function loseGame() {
+  if (gameOver || won) return;
+
+  gameOver = true;
+  generatorOpen=false; generatorOverlay.classList.add('hidden');
+  levelComplete = false;
+  running = false;
+
+  hud.classList.add('hidden');
+
+  title.innerHTML = 'SHIFT<br>TERMINATED';
+  description.textContent =
+    'The facility has claimed another victim. Your access credentials have been recovered.';
+
+  startButton.textContent = 'TRY AGAIN';
+  overlay.classList.remove('hidden');
+
+  document.exitPointerLock?.();
+}
+
+function winGame() {
+  if (gameOver || won) return;
+
+  won = true;
+  running = false;
+
+  hud.classList.add('hidden');
+
+  title.innerHTML = 'YOU MADE<br>IT OUT';
+  description.textContent =
+    'The emergency doors unlock. Cold night air fills your lungs. Behind you, something pounds against the sealed door.';
+
+  startButton.textContent = 'PLAY AGAIN';
+  overlay.classList.remove('hidden');
+
+  document.exitPointerLock?.();
+}
+
+function completeLevel() {
+  if (levelComplete || gameOver || won) return;
+
+  levelComplete = true;
+  running = false;
+
+  hud.classList.add('hidden');
+
+  title.innerHTML = `LEVEL ${currentLevel}<br>COMPLETE`;
+  description.textContent =
+    `Level ${currentLevel} complete. You recovered every keycard and restored the generators. The next sector is darker — and something else is moving in there.`;
+
+  startButton.textContent = `ENTER LEVEL ${currentLevel + 1}`;
+  overlay.classList.remove('hidden');
+
+  document.exitPointerLock?.();
+}
+
+function startNextLevel() {
+  if (currentLevel >= 3) {
+    winGame();
+    return;
+  }
+
+  currentLevel++;
+  generatorOpen=false; generatorOverlay.classList.add('hidden');
+  levelComplete = false;
+  gameOver = false;
+  won = false;
+  running = false;
+
+  elapsed = 0;
+  player.stamina = 100;
+
+  syncFlashlightVisibility();
+
+  // Return the player to the starting corridor.
+  player.yaw = 0;
+  player.pitch = 0;
+
+  camera.position.copy(worldPos(1, 1));
+  camera.position.y = PLAYER_HEIGHT;
+  camera.rotation.set(0, 0, 0, 'YXZ');
+
+  // Switch to this level's fixed layout and rebuild its walls.
+  maze = MAZES[currentLevel - 1];
+  rebuildMazeWalls();
+  exitPosition = worldPos(13,14);
+  exitGroup.position.set(exitPosition.x, 0, exitPosition.z);
+  exitLamp.position.set(exitPosition.x, 3, exitPosition.z);
+
+  // Pick a safe monster spawn from this level's three authored locations.
+  const spawn = LEVELS[currentLevel - 1].monsterSpawns[Math.floor(Math.random() * 3)];
+  monster.position.copy(worldPos(spawn[0], spawn[1]));
+  monster.position.y = 0;
+  monster.rotation.y = Math.PI;
+  resetAdditionalThreats();
+
+  pathRefresh = 0;
+  monsterPath = [];
+  monsterDistance = 100;
+
+  // Reset the exit terminal.
+  terminal.material.emissive.setHex(0x0a8b65);
+  exitLamp.color.setHex(0xff3030);
+  exitLamp.intensity = 2.5;
+
+  promptText.textContent = '';
+  dangerOverlay.style.opacity = '0';
+
+  applyLevelAppearance();
+  spawnCardsForLevel();
+  spawnGeneratorsForLevel();
+  spawnLoreForLevel();
+
+  overlay.classList.add('hidden');
+  hud.classList.remove('hidden');
+
+  renderer.domElement.requestPointerLock?.();
+  running = true;
+}
+
+function startGame() {
+  if (gameOver || won) {
+    location.reload();
+    return;
+  }
+
+  overlay.classList.add('hidden');
+  hud.classList.remove('hidden');
+
+  renderer.domElement.requestPointerLock?.();
+  running = true;
+}
+
+// ----------------------------------------------------
+// INPUT
+// ----------------------------------------------------
+startButton.addEventListener('click', () => {
+  if (levelComplete) {
+    startNextLevel();
+  } else {
+    startGame();
+  }
+});
+
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement === renderer.domElement) {
+    running = true;
+    overlay.classList.add('hidden');
+    hud.classList.remove('hidden');
+  } else if (running && !gameOver && !won && !levelComplete) {
+    running = false;
+
+    title.textContent = 'PAUSED';
+    description.textContent =
+      'The facility is waiting. Take a breath, then continue.';
+
+    startButton.textContent = 'RESUME';
+    overlay.classList.remove('hidden');
+  }
+});
+
+document.addEventListener('mousemove', event => {
+  if (
+    !running ||
+    document.pointerLockElement !== renderer.domElement
+  ) return;
+
+  player.yaw -= event.movementX * 0.0021;
+  player.pitch -= event.movementY * 0.0021;
+
+  player.pitch = THREE.MathUtils.clamp(
+    player.pitch, -1.42, 1.42
+  );
+
+  camera.rotation.set(
+    player.pitch,
+    player.yaw,
+    0,
+    'YXZ'
+  );
+});
+
+document.addEventListener('keydown', event => {
+  keys[event.code] = true;
+  if(generatorOpen && /^Digit[1-4]$/.test(event.code)) { enterGeneratorNumber(Number(event.code.slice(5))); return; }
+  if(generatorOpen && event.code==='Escape') { closeGenerator(); return; }
+
+  if (event.code === 'KeyM' && !event.repeat) { toggleDebugMap(); return; }
+
+  // F toggles the flashlight manually.
+  if (event.code === 'KeyF' && !event.repeat) {
+    player.flashlightOn = !player.flashlightOn;
+
+    syncFlashlightVisibility();
+  }
+
+  // E closes a recovered file or interacts with nearby lore / exit.
+  if (event.code === 'KeyE' && !event.repeat) {
+    if(generatorOpen) { closeGenerator(); return; }
+    if (loreOpen) { closeLore(); return; }
+    if (running) {
+      const nearbyGenerator=nearestGenerator();
+      if(nearbyGenerator) { openGenerator(nearbyGenerator); return; }
+      const nearbyLore=nearestLoreItem();
+      if(nearbyLore) { openLore(nearbyLore); return; }
+      const dist = camera.position.distanceTo(exitPosition);
+      if (dist < 3.0) {
+        if (collected === totalCards && generatorsRestored === totalGenerators) {
+          if (currentLevel < 3) completeLevel(); else winGame();
+        } else promptText.textContent = `ACCESS DENIED — ${totalCards-collected} KEYCARD(S) AND ${totalGenerators-generatorsRestored} GENERATOR(S) REQUIRED`;
+      }
+    }
+  }
+});
+
+document.addEventListener('keyup', event => {
+  keys[event.code] = false;
+  if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+    sprintLockedUntilRelease = false;
+  }
+});
+
+window.addEventListener('blur', () => {
+  for (const key in keys) {
+    keys[key] = false;
+  }
+});
+
+// ----------------------------------------------------
+// MAIN GAME LOOP
+// ----------------------------------------------------
+const clock = new THREE.Clock();
+
+const forward = new THREE.Vector3();
+const right = new THREE.Vector3();
+const move = new THREE.Vector3();
+
+function updatePlayer(dt) {
+  const isSprinting = keys.ShiftLeft || keys.ShiftRight;
+
+  const wantsMove =
+    keys.KeyW || keys.KeyS || keys.KeyA || keys.KeyD;
+
+  // Sprint is hold-to-use, requires stamina, and locks out on depletion
+  // until the player releases Shift. This prevents rapid regen/sprint pulsing.
+  const sprinting =
+    isSprinting && wantsMove && player.stamina > 0 && !sprintLockedUntilRelease;
+
+  const speed = sprinting ? RUN_SPEED : WALK_SPEED;
+
+  if (sprinting) {
+    player.stamina = Math.max(0, player.stamina - 60 * dt); // 2x faster drain
+    if (player.stamina <= 0) {
+      sprintLockedUntilRelease = true;
+    }
+  } else {
+    player.stamina = Math.min(100, player.stamina + (19 / 3) * dt); // 3x slower recharge
+  }
+
+  staminaFill.style.width = `${player.stamina}%`;
+  staminaFill.style.background =
+    player.stamina < 25 ? '#e64545' : '#65f0cc';
+
+  forward.set(
+    -Math.sin(player.yaw),
+    0,
+    -Math.cos(player.yaw)
+  );
+
+  right.set(
+    Math.cos(player.yaw),
+    0,
+    -Math.sin(player.yaw)
+  );
+
+  move.set(0, 0, 0);
+
+  if (keys.KeyW) move.add(forward);
+  if (keys.KeyS) move.sub(forward);
+  if (keys.KeyD) move.add(right);
+  if (keys.KeyA) move.sub(right);
+
+  if (move.lengthSq() > 0) {
+    move.normalize().multiplyScalar(speed * dt);
+    movePlayer(move.x, move.z);
+
+    // Subtle head bob while moving.
+    elapsed += dt * (sprinting ? 13 : 8);
+    camera.position.y =
+      PLAYER_HEIGHT + Math.sin(elapsed) * 0.025;
+  } else {
+    camera.position.y = THREE.MathUtils.damp(
+      camera.position.y,
+      PLAYER_HEIGHT,
+      8,
+      dt
+    );
+  }
+
+  // Keep the flashlight attached to the camera.
+  flashlight.position.copy(camera.position);
+
+  forward.set(
+    -Math.sin(player.yaw) * Math.cos(player.pitch),
+    Math.sin(player.pitch),
+    -Math.cos(player.yaw) * Math.cos(player.pitch)
+  );
+
+  flashlight.target.position
+    .copy(camera.position)
+    .addScaledVector(forward, 10);
+
+  flashlightBulb.position
+    .copy(camera.position)
+    .addScaledVector(forward, 0.5);
+
+  // Red danger vignette intensifies as the creature approaches.
+  dangerOverlay.style.opacity = monsterDistance < 9
+    ? String(
+        THREE.MathUtils.clamp(
+          (9 - monsterDistance) / 9,
+          0,
+          0.48
+        )
+      )
+    : '0';
+}
+
+function updateCards(dt) {
+  for (const card of keycards) {
+    if (card.taken) continue;
+
+    card.mesh.rotation.y += dt * 1.2;
+
+    card.mesh.position.y =
+      0.85 + Math.sin(elapsed * 2 + card.mesh.position.x) * 0.07;
+
+    if (camera.position.distanceTo(card.mesh.position) < 1.45) {
+      card.taken = true;
+      scene.remove(card.mesh);
+
+      collected++;
+      updateObjective();
+    }
+  }
+}
+
+function updateMonster(dt) {
+  if (!running) return;
+
+  // Horizontal distance is essential because the camera is elevated.
+  const distance = Math.hypot(
+    monster.position.x - camera.position.x,
+    monster.position.z - camera.position.z
+  );
+
+  monsterDistance = distance;
+
+  // Refresh the maze path periodically.
+  pathRefresh -= dt;
+
+  if (pathRefresh <= 0) {
+    const start = cellAt(monster.position);
+    const goal = cellAt(camera.position);
+
+    monsterPath = findPath(start, goal);
+    pathRefresh = distance < 12 ? 0.22 : 0.45;
+  }
+
+  let moving = false;
+  const playerCell=cellAt(camera.position);
+  const monsterCellNow=cellAt(monster.position);
+  // Once the creature enters the player's maze cell, pursue the player's actual
+  // position (not merely the cell center). This prevents the old path from ending
+  // just short of the player and leaving the monster idle.
+  let target=null;
+  if(monsterCellNow.row===playerCell.row && monsterCellNow.col===playerCell.col) {
+    target={x:camera.position.x,z:camera.position.z};
+  } else if(monsterPath.length>0) {
+    const targetCell=monsterPath[0]; target=worldPos(targetCell.row,targetCell.col);
+  }
+  if(target) {
+    const dx=target.x-monster.position.x, dz=target.z-monster.position.z;
+    const d=Math.hypot(dx,dz);
+    if(d<0.12) {
+      if(monsterPath.length>0 && !(monsterCellNow.row===playerCell.row && monsterCellNow.col===playerCell.col)) monsterPath.shift();
+    } else {
+      const config=LEVELS[currentLevel-1];
+      const chaseSpeed=distance<9?config.chaseSpeed:config.monsterSpeed;
+      const step=Math.min(chaseSpeed*dt,d);
+      const nx=monster.position.x+(dx/d)*step, nz=monster.position.z+(dz/d)*step;
+      if(canOccupy(nx,nz,0.62)) { monster.position.x=nx; monster.position.z=nz; moving=true; }
+      else pathRefresh=0;
+    }
+  }
+
+  // Turn toward the player while moving.
+  if (moving) {
+    const dx = camera.position.x - monster.position.x;
+    const dz = camera.position.z - monster.position.z;
+
+    monster.rotation.y = Math.atan2(-dx, -dz);
+  }
+
+  // Animate the creature's limbs.
+  const walk = elapsed * 7.5;
+
+  leftArm.rotation.x = moving ? Math.sin(walk) * 0.55 : 0.05;
+  rightArm.rotation.x = moving ? -Math.sin(walk) * 0.55 : -0.05;
+
+  leftLeg.rotation.x = moving ? -Math.sin(walk) * 0.42 : 0;
+  rightLeg.rotation.x = moving ? Math.sin(walk) * 0.42 : 0;
+
+  torso.position.y = moving
+    ? Math.abs(Math.sin(walk)) * 0.055
+    : 0;
+
+  torso.rotation.z = moving
+    ? Math.sin(walk * 0.5) * 0.035
+    : 0;
+
+  torso.rotation.x = distance < 8
+    ? Math.sin(elapsed * 2.5) * 0.045
+    : 0;
+
+  // Larger horizontal kill radius: the monster catches you before
+  // its model visibly overlaps the player's camera.
+  if (distance < 1.65) {
+    loseGame();
+  }
+}
+
+
+function followMazePath(group,path,speed,dt,radius=0.48,strafe=0) {
+  const here=cellAt(group.position),playerCell=cellAt(camera.position);
+  if(here.row===playerCell.row&&here.col===playerCell.col) {
+    const dx=camera.position.x-group.position.x,dz=camera.position.z-group.position.z,d=Math.hypot(dx,dz);
+    if(d>0.001){const nx=group.position.x+(dx/d)*Math.min(speed*dt,d),nz=group.position.z+(dz/d)*Math.min(speed*dt,d);if(canOccupy(nx,nz,radius)){group.position.x=nx;group.position.z=nz;return true;}}
+    return false;
+  }
+  if(!path.length||Math.random()<0.035){const next=findPath(here,playerCell);path.splice(0,path.length,...next);}
+  if(!path.length)return false;
+  const target=worldPos(path[0].row,path[0].col);
+  let dx=target.x-group.position.x,dz=target.z-group.position.z,d=Math.hypot(dx,dz);
+  if(d<0.16){path.shift();return false;}
+  let vx=dx/d,vz=dz/d;
+  if(strafe){const sway=Math.sin(elapsed*8.5)*strafe;const oldVx=vx;vx+=-vz*sway;vz+=oldVx*sway;const norm=Math.hypot(vx,vz);vx/=norm;vz/=norm;}
+  const step=Math.min(speed*dt,d),nx=group.position.x+vx*step,nz=group.position.z+vz*step;
+  if(canOccupy(nx,nz,radius)){group.position.x=nx;group.position.z=nz;group.rotation.y=Math.atan2(-vx,-vz);return true;}
+  path.length=0;return false;
+}
+function updateSpiderMonster(dt) {
+  if(!running||!spiderMonster.visible)return;
+  const distance=Math.hypot(spiderMonster.position.x-camera.position.x,spiderMonster.position.z-camera.position.z);
+  spiderDistance=distance; spiderPounceTimer-=dt;
+  if(spiderPounceTimer<=0&&distance<15){spiderPounceUntil=elapsed+1.15;spiderPounceTimer=6.5+Math.random()*3.5;}
+  spiderPounceActive=elapsed<spiderPounceUntil;
+  const speed=spiderPounceActive?5.1:distance<8?1.95:1.35;
+  const moving=followMazePath(spiderMonster,spiderPath,speed,dt,0.43,spiderPounceActive?0.32:0.13);
+  const gait=elapsed*(spiderPounceActive?17:11);
+  spiderBody.position.y=moving?Math.abs(Math.sin(gait))*0.12:Math.sin(elapsed*2.2)*0.025;
+  spiderBody.rotation.z=moving?Math.sin(gait*0.5)*0.09:0;
+  for(const item of spiderLegPivots){item.leg.rotation.x=moving?Math.sin(gait+(item.index%2)*Math.PI)*0.17:Math.sin(elapsed*1.8+item.index)*0.025;item.leg.rotation.z=item.side*(0.02+Math.sin(gait+(item.index%2)*Math.PI)*0.09);}
+  spiderGlow.intensity=spiderPounceActive?2.7:1.1;
+  if(distance<1.38)loseGame();
+}
+function updateWardenMonster(dt) {
+  if(!running||!wardenMonster.visible)return;
+  const dx=wardenMonster.position.x-camera.position.x,dz=wardenMonster.position.z-camera.position.z,distance=Math.hypot(dx,dz);
+  wardenDistance=distance;
+  if(!wardenHasAwakened&&elapsed>=wardenAwakeAt){wardenHasAwakened=true;promptText.textContent='SOMETHING IN THE DARK HAS NOTICED YOU.';}
+  if(!wardenHasAwakened){wardenBody.rotation.y=Math.sin(elapsed*0.35)*0.12;return;}
+  const lookX=-Math.sin(player.yaw),lookZ=-Math.cos(player.yaw);
+  const towardX=dx/(distance||1),towardZ=dz/(distance||1);
+  const beingWatched=lookX*towardX+lookZ*towardZ>0.42;
+  if(!beingWatched){followMazePath(wardenMonster,wardenPath,distance<7?3.0:2.15,dt,0.42,0);wardenBody.rotation.z=Math.sin(elapsed*3.8)*0.035;}
+  else wardenBody.rotation.z=Math.sin(elapsed*5)*0.012;
+  wardenBody.position.y=Math.sin(elapsed*1.4)*0.07;
+  wardenGlow.intensity=beingWatched?0.55:2.0;
+  if(distance<1.55)loseGame();
+}
+
+
+function updatePrompt() {
+  if (!running) return;
+
+  const nearbyGenerator=nearestGenerator();
+  if(nearbyGenerator) { promptText.textContent=`[ E ] RESTORE GENERATOR ${String(nearbyGenerator.index+1).padStart(2,'0')}`; return; }
+  const nearbyLore=nearestLoreItem();
+  if(nearbyLore) { promptText.textContent='[ E ] READ RECOVERED DOCUMENT'; return; }
+  const exitDist=camera.position.distanceTo(exitPosition);
+  if(exitDist<3.0) {
+    promptText.textContent=collected===totalCards&&generatorsRestored===totalGenerators
+      ? '[ E ] UNLOCK EMERGENCY EXIT'
+      : `[ E ] LOCKED — ${totalCards-collected} CARD(S), ${totalGenerators-generatorsRestored} GENERATOR(S) NEEDED`;
+  } else promptText.textContent='';
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if (running) {
+    elapsed += dt;
+
+    updatePlayer(dt);
+    updateCards(dt);
+    updateMonster(dt);
+    updateSpiderMonster(dt);
+    updateWardenMonster(dt);
+    monsterDistance=Math.min(monsterDistance,spiderDistance,wardenDistance);
+    updatePrompt();
+
+    // Fog thickens on later levels and as the creature gets closer.
+    const baseFog =
+      currentLevel === 1 ? 0.027 :
+      currentLevel === 2 ? 0.034 :
+      0.042;
+
+    scene.fog.density = monsterDistance < 13
+      ? baseFog + (13 - monsterDistance) * 0.0012
+      : baseFog;
+
+    // The exit changes to green when all cards are collected.
+    if (collected === totalCards && generatorsRestored === totalGenerators) {
+      terminal.material.emissive.setHex(0x19ff9b);
+      exitLamp.color.setHex(0x33ff9b);
+      exitLamp.intensity = 3;
+    }
+  }
+
+  if (mapVisible) drawDebugMap();
+  renderer.render(scene, camera);
+}
+
+// ----------------------------------------------------
+// INITIALIZE
+// ----------------------------------------------------
+applyLevelAppearance();
+spawnCardsForLevel();
+spawnGeneratorsForLevel();
+spawnLoreForLevel();
+updateObjective();
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio || 1, 1.5)
+  );
+});
+
+</script>
+</body>
+</html>
